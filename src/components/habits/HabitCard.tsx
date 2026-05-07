@@ -3,12 +3,10 @@
 import { useState } from "react";
 import { useHabitStore } from "@/lib/store/habitStore";
 import { useUiStore } from "@/lib/store/uiStore";
-import { getStreakFireLevel } from "@/lib/utils/streaks";
 import { cn } from "@/lib/utils";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, Minus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FlameIcon } from "@/components/dashboard/StackedRing";
 import type { HabitWithStreak } from "@/types";
 
 interface HabitCardProps {
@@ -24,23 +22,26 @@ export function HabitCard({ habit }: HabitCardProps) {
 
   const isCompleted = habit.todayLog?.completed ?? false;
   const currentStreak = habit.streak?.current_streak ?? 0;
-  const fireLevel = getStreakFireLevel(currentStreak);
+  const currentValue = habit.todayLog?.value ?? 0;
+  const target = habit.target_value ?? 0;
+  const pct =
+    habit.habit_type === "binary"
+      ? isCompleted
+        ? 1
+        : 0
+      : Math.min(1, currentValue / Math.max(1, target));
 
   async function handleToggle() {
-    if (habit.habit_type === "binary") {
-      setToggling(true);
-      await toggleHabit(habit.id);
-      if (!isCompleted) {
-        const habits = useHabitStore.getState().habits;
-        const allDone = habits.every((h) =>
-          h.id === habit.id ? true : h.todayLog?.completed
-        );
-        if (allDone) triggerConfetti();
-      }
-      setToggling(false);
-    } else {
-      setShowInput(!showInput);
+    setToggling(true);
+    await toggleHabit(habit.id);
+    if (!isCompleted) {
+      const habits = useHabitStore.getState().habits;
+      const allDone = habits.every((h) =>
+        h.id === habit.id ? true : h.todayLog?.completed
+      );
+      if (allDone) triggerConfetti();
     }
+    setToggling(false);
   }
 
   async function handleValueSubmit() {
@@ -51,66 +52,130 @@ export function HabitCard({ habit }: HabitCardProps) {
     setValueInput("");
   }
 
-  const currentValue = habit.todayLog?.value ?? 0;
+  const isBinary = habit.habit_type === "binary";
 
   return (
-    <Card
+    <div
       className={cn(
-        "glass-card p-4 transition-all duration-200 animate-fade-in",
-        isCompleted && "ring-2 ring-success/30"
+        "rounded-2xl border p-3.5 transition-colors animate-fade-in"
       )}
+      style={{
+        background: isCompleted
+          ? "rgba(48, 209, 88, 0.06)"
+          : "var(--sf-surface)",
+        borderColor: isCompleted
+          ? "rgba(48, 209, 88, 0.2)"
+          : "var(--sf-border)",
+      }}
     >
-      <div className="flex items-center gap-3">
-        <button
-          onClick={handleToggle}
-          disabled={toggling}
-          className={cn(
-            "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl transition-all duration-200",
-            isCompleted
-              ? "bg-success/20 scale-110"
-              : "bg-muted hover:bg-muted/80"
-          )}
-          style={{ borderColor: habit.color, borderWidth: isCompleted ? 2 : 0 }}
+      <div className="flex items-center gap-3.5">
+        {/* Icon tile */}
+        <div
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg"
+          style={{ background: `${habit.color}1f` }}
         >
-          {isCompleted ? <Check className="h-6 w-6 text-success" /> : habit.icon}
-        </button>
+          {habit.icon}
+        </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h3
-              className={cn(
-                "font-medium truncate",
-                isCompleted && "text-success"
-              )}
-            >
+        {/* Name + meta */}
+        <div className="min-w-0 flex-1">
+          <div className="mb-0.5 flex items-center gap-2">
+            <span className="truncate text-sm font-semibold">
               {habit.name}
-            </h3>
+            </span>
             {currentStreak > 0 && (
-              <span className="text-sm whitespace-nowrap">
-                {fireLevel} {currentStreak}d
+              <span
+                className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold"
+                style={{ color: "var(--sf-accent)" }}
+              >
+                <FlameIcon size={11} />
+                {currentStreak}d
               </span>
             )}
           </div>
-          {habit.habit_type !== "binary" && (
-            <p className="text-sm text-muted-foreground">
-              {currentValue}/{habit.target_value} {habit.target_unit}
-            </p>
-          )}
+          <div
+            className="flex items-center gap-2 text-xs"
+            style={{ color: "var(--sf-text-3)" }}
+          >
+            {isBinary ? (
+              <span>{isCompleted ? "Completed" : "Tap to complete"}</span>
+            ) : (
+              <>
+                <span
+                  className="sf-num"
+                  style={{
+                    color: isCompleted
+                      ? "var(--sf-success)"
+                      : "var(--sf-text-2)",
+                  }}
+                >
+                  {currentValue}/{target} {habit.target_unit}
+                </span>
+                {!isCompleted && (
+                  <div
+                    className="h-[3px] max-w-[120px] flex-1 overflow-hidden rounded-full"
+                    style={{ background: "var(--sf-surface-3)" }}
+                  >
+                    <div
+                      className="h-full rounded-full transition-[width] duration-700"
+                      style={{
+                        width: `${pct * 100}%`,
+                        background: habit.color,
+                      }}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
-        {habit.habit_type !== "binary" && !isCompleted && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowInput(!showInput)}
-            className="shrink-0"
+        {/* Action */}
+        {isBinary ? (
+          <button
+            onClick={handleToggle}
+            disabled={toggling}
+            aria-label={
+              isCompleted ? "Mark incomplete" : "Mark complete"
+            }
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full p-0 transition-transform active:scale-90"
+            style={{
+              borderWidth: 1.5,
+              borderStyle: "solid",
+              borderColor: isCompleted
+                ? "var(--sf-success)"
+                : "var(--sf-border-strong)",
+              background: isCompleted ? "var(--sf-success)" : "transparent",
+            }}
           >
-            Log
-          </Button>
+            {isCompleted && (
+              <svg width={14} height={14} viewBox="0 0 14 14" fill="none">
+                <path
+                  d="M3 7.5l3 3 5-6"
+                  stroke="#0c0a08"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </button>
+        ) : (
+          <button
+            onClick={() => setShowInput(!showInput)}
+            className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+            style={{
+              background: isCompleted ? "transparent" : "var(--sf-surface-3)",
+              border: `1px solid ${isCompleted ? "rgba(48,209,88,0.3)" : "var(--sf-border)"}`,
+              color: isCompleted ? "var(--sf-success)" : "var(--sf-text)",
+            }}
+          >
+            {isCompleted ? "✓ Done" : "Log"}
+          </button>
         )}
       </div>
 
-      {showInput && (
+      {showInput && !isBinary && (
         <div className="mt-3 flex items-center gap-2 animate-fade-in">
           <Input
             type="number"
@@ -127,6 +192,6 @@ export function HabitCard({ habit }: HabitCardProps) {
           </Button>
         </div>
       )}
-    </Card>
+    </div>
   );
 }

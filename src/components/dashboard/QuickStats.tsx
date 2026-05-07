@@ -3,37 +3,89 @@
 import { useGamificationStore } from "@/lib/store/gamificationStore";
 import { useHabitStore } from "@/lib/store/habitStore";
 import { getXpProgress } from "@/lib/utils/xp";
-import { Card } from "@/components/ui/card";
-import { Zap, Flame, Target } from "lucide-react";
+import { FlameIcon } from "./StackedRing";
+
+interface TileProps {
+  label: string;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
+  color?: string;
+}
+
+function StatTile({ label, value, sub, color = "var(--sf-text)" }: TileProps) {
+  return (
+    <div
+      className="flex flex-col gap-1.5 rounded-2xl border p-4 sm:p-5"
+      style={{
+        background: "var(--sf-surface)",
+        borderColor: "var(--sf-border)",
+      }}
+    >
+      <div className="sf-eyebrow">{label}</div>
+      <div
+        className="sf-num text-3xl font-semibold leading-none"
+        style={{ color }}
+      >
+        {value}
+      </div>
+      {sub && (
+        <div className="text-xs" style={{ color: "var(--sf-text-3)" }}>
+          {sub}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function QuickStats() {
   const { profile } = useGamificationStore();
   const { habits } = useHabitStore();
 
-  const topStreak = Math.max(0, ...habits.map((h) => h.streak?.current_streak ?? 0));
+  const topStreakHabit = habits
+    .filter((h) => h.streak)
+    .sort(
+      (a, b) =>
+        (b.streak?.current_streak ?? 0) - (a.streak?.current_streak ?? 0)
+    )[0];
+  const topStreak = topStreakHabit?.streak?.current_streak ?? 0;
   const xpInfo = profile ? getXpProgress(profile.xp) : null;
+  const xpToNext =
+    xpInfo && xpInfo.nextLevel
+      ? Math.max(0, xpInfo.xpForNextLevel - xpInfo.xpIntoLevel)
+      : 0;
+  const isMaxLevel = xpInfo && !xpInfo.nextLevel;
 
   return (
-    <div className="grid grid-cols-3 gap-3">
-      <Card className="glass-card p-3 text-center">
-        <Zap className="h-5 w-5 mx-auto mb-1 text-primary" />
-        <p className="text-xl font-bold font-mono">{profile?.xp ?? 0}</p>
-        <p className="text-xs text-muted-foreground">Total XP</p>
-      </Card>
-      <Card className="glass-card p-3 text-center">
-        <Flame className="h-5 w-5 mx-auto mb-1 text-danger" />
-        <p className="text-xl font-bold font-mono">{topStreak}</p>
-        <p className="text-xs text-muted-foreground">Top Streak</p>
-      </Card>
-      <Card className="glass-card p-3 text-center">
-        <Target className="h-5 w-5 mx-auto mb-1 text-success" />
-        <p className="text-xl font-bold font-mono">
-          Lv.{xpInfo?.currentLevel.level ?? 1}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {xpInfo?.currentLevel.name ?? "Starter"}
-        </p>
-      </Card>
+    <div className="grid grid-cols-3 gap-3 sm:gap-3.5">
+      <StatTile
+        label="Total XP"
+        value={profile?.xp.toLocaleString() ?? "0"}
+        sub={`Lv ${xpInfo?.currentLevel.level ?? 1} · ${xpInfo?.currentLevel.name ?? "Starter"}`}
+      />
+      <StatTile
+        label="Top Streak"
+        value={`${topStreak}d`}
+        sub={
+          topStreakHabit ? (
+            <span className="inline-flex items-center gap-1">
+              <FlameIcon size={11} /> {topStreakHabit.name}
+            </span>
+          ) : (
+            "Start one today"
+          )
+        }
+        color="var(--sf-accent)"
+      />
+      <StatTile
+        label={isMaxLevel ? "Max Level" : "To Next Level"}
+        value={isMaxLevel ? "★" : xpToNext.toLocaleString()}
+        sub={
+          isMaxLevel
+            ? "Transcendent"
+            : `XP to Lv ${(xpInfo?.currentLevel.level ?? 1) + 1}`
+        }
+        color="var(--sf-ring-fuel)"
+      />
     </div>
   );
 }

@@ -48,7 +48,7 @@ export function HabitList() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-2">
       {todayHabits.map((habit) => (
         <HabitCard key={habit.id} habit={habit} />
       ))}

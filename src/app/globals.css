@@ -52,38 +52,66 @@
 }
 
 :root {
-  --background: #0F0F14;
-  --foreground: #FFFFFF;
-  --card: #1A1A24;
-  --card-foreground: #FFFFFF;
-  --popover: #1A1A24;
-  --popover-foreground: #FFFFFF;
-  --primary: #6C5CE7;
-  --primary-foreground: #FFFFFF;
-  --secondary: #2D2D3F;
-  --secondary-foreground: #FFFFFF;
-  --muted: #2D2D3F;
-  --muted-foreground: #A0A0B8;
-  --accent: #2D2D3F;
-  --accent-foreground: #FFFFFF;
-  --destructive: #E17055;
-  --border: #2D2D3F;
-  --input: #2D2D3F;
-  --ring: #6C5CE7;
-  --chart-1: #6C5CE7;
-  --chart-2: #00B894;
-  --chart-3: #E17055;
-  --chart-4: #FDCB6E;
-  --chart-5: #0984E3;
+  /* StreakFlow — Apple-Fitness-rings direction. Warm-black canvas, glassy cards. */
+  --background: #100e0c;
+  --foreground: #f5efe7;
+  --card: #1a1714;
+  --card-foreground: #f5efe7;
+  --popover: #1a1714;
+  --popover-foreground: #f5efe7;
+  --primary: #ff5e3a;
+  --primary-foreground: #ffffff;
+  --secondary: #221e1a;
+  --secondary-foreground: #f5efe7;
+  --muted: #221e1a;
+  --muted-foreground: #b8aea2;
+  --accent: #2a2520;
+  --accent-foreground: #f5efe7;
+  --destructive: #ff453a;
+  --border: rgba(255, 240, 220, 0.08);
+  --input: #2a2520;
+  --ring: #ff5e3a;
+
+  /* Ring identity colors */
+  --sf-bg: #100e0c;
+  --sf-bg-tint: #14110e;
+  --sf-surface: #1a1714;
+  --sf-surface-2: #221e1a;
+  --sf-surface-3: #2a2520;
+  --sf-border: rgba(255, 240, 220, 0.08);
+  --sf-border-strong: rgba(255, 240, 220, 0.14);
+  --sf-divider: rgba(255, 240, 220, 0.05);
+  --sf-text: #f5efe7;
+  --sf-text-2: #b8aea2;
+  --sf-text-3: #7a7268;
+  --sf-text-4: #4d4742;
+  --sf-ring-move: #ff2d55;
+  --sf-ring-mind: #00d9b2;
+  --sf-ring-fuel: #ffb340;
+  --sf-ring-flow: #af52de;
+  --sf-ring-rest: #5ac8fa;
+  --sf-accent: #ff5e3a;
+  --sf-success: #30d158;
+  --sf-warning: #ffb340;
+  --sf-danger: #ff453a;
+  --sf-glass: rgba(28, 24, 20, 0.72);
+  --sf-glass-strong: rgba(34, 30, 26, 0.85);
+
+  --chart-1: #ff2d55;
+  --chart-2: #00d9b2;
+  --chart-3: #ffb340;
+  --chart-4: #af52de;
+  --chart-5: #5ac8fa;
   --radius: 0.75rem;
-  --sidebar: #141420;
-  --sidebar-foreground: #FFFFFF;
-  --sidebar-primary: #6C5CE7;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #2D2D3F;
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #2D2D3F;
-  --sidebar-ring: #6C5CE7;
+
+  --sidebar: #14110e;
+  --sidebar-foreground: #f5efe7;
+  --sidebar-primary: #ff5e3a;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #221e1a;
+  --sidebar-accent-foreground: #f5efe7;
+  --sidebar-border: rgba(255, 240, 220, 0.08);
+  --sidebar-ring: #ff5e3a;
 }
 
 @layer base {
@@ -122,7 +150,28 @@
 }
 
 .glass-card {
-  background: rgba(26, 26, 36, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(45, 45, 63, 0.5);
+  background: var(--sf-glass);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid var(--sf-border);
 }
+
+.sf-num {
+  font-feature-settings: "tnum", "cv11";
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+}
+
+.sf-eyebrow {
+  font-size: 11px;
+  color: var(--sf-text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.sf-ring-glow-move { filter: drop-shadow(0 0 10px rgba(255,45,85,0.5)); }
+.sf-ring-glow-mind { filter: drop-shadow(0 0 10px rgba(0,217,178,0.5)); }
+.sf-ring-glow-fuel { filter: drop-shadow(0 0 10px rgba(255,179,64,0.5)); }
+.sf-ring-glow-flow { filter: drop-shadow(0 0 10px rgba(175,82,222,0.5)); }
+.sf-ring-glow-rest { filter: drop-shadow(0 0 10px rgba(90,200,250,0.5)); }

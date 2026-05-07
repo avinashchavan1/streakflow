@@ -1,4 +1,5 @@
 import { HabitDetail } from "@/components/habits/HabitDetail";
+import { HabitForm } from "@/components/habits/HabitForm";
 
 export default async function HabitDetailPage({
   params,
@@ -8,8 +9,9 @@ export default async function HabitDetailPage({
   const { id } = await params;
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <>
       <HabitDetail habitId={id} />
-    </div>
+      <HabitForm />
+    </>
   );
 }

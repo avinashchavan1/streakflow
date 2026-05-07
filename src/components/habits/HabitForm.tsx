@@ -3,29 +3,38 @@
 import { useState, useEffect } from "react";
 import { useHabitStore } from "@/lib/store/habitStore";
 import { useUiStore } from "@/lib/store/uiStore";
-import { HABIT_COLORS, HABIT_TEMPLATES, MAX_ACTIVE_HABITS } from "@/lib/constants/theme";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  HABIT_COLORS,
+  HABIT_TEMPLATES,
+  MAX_ACTIVE_HABITS,
+} from "@/lib/constants/theme";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 import type { HabitType, Frequency } from "@/types";
 
-const EMOJIS = ["✅", "💧", "🏋️", "📚", "🧘", "💻", "✍️", "🏃", "😴", "🎵", "🥗", "💊", "🧹", "📱", "🎨"];
+const ICONS = [
+  "💧",
+  "💪",
+  "📚",
+  "🧘",
+  "💻",
+  "📓",
+  "🏃",
+  "🥗",
+  "😴",
+  "🎨",
+  "🎸",
+  "📝",
+  "☀️",
+  "🌱",
+  "🧠",
+  "🦷",
+];
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
 
 export function HabitForm() {
   const { habits, addHabit, updateHabit } = useHabitStore();
@@ -36,7 +45,7 @@ export function HabitForm() {
     : null;
 
   const [name, setName] = useState("");
-  const [icon, setIcon] = useState("✅");
+  const [icon, setIcon] = useState(ICONS[0]);
   const [color, setColor] = useState<string>(HABIT_COLORS[0]);
   const [habitType, setHabitType] = useState<HabitType>("binary");
   const [targetValue, setTargetValue] = useState("");
@@ -58,11 +67,12 @@ export function HabitForm() {
     } else {
       resetForm();
     }
-  }, [editingHabit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingHabit?.id]);
 
   function resetForm() {
     setName("");
-    setIcon("✅");
+    setIcon(ICONS[0]);
     setColor(HABIT_COLORS[0]);
     setHabitType("binary");
     setTargetValue("");
@@ -81,203 +91,379 @@ export function HabitForm() {
     setTargetUnit(t.target_unit ?? "");
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit() {
     if (!name.trim()) return;
-
     setSaving(true);
     const data = {
       name: name.trim(),
       icon,
       color,
       habit_type: habitType,
-      target_value: habitType !== "binary" ? parseFloat(targetValue) || null : null,
+      target_value:
+        habitType !== "binary" ? parseFloat(targetValue) || null : null,
       target_unit: habitType !== "binary" ? targetUnit || null : null,
       frequency,
       custom_days: frequency === "custom" ? customDays : null,
     };
-
-    if (editingHabitId) {
-      await updateHabit(editingHabitId, data);
-    } else {
-      await addHabit(data);
-    }
-
+    if (editingHabitId) await updateHabit(editingHabitId, data);
+    else await addHabit(data);
     setSaving(false);
     closeHabitForm();
     resetForm();
   }
 
-  const canAdd = !editingHabitId && habits.filter((h) => h.is_active !== false).length >= MAX_ACTIVE_HABITS;
+  const atLimit =
+    !editingHabitId &&
+    habits.filter((h) => h.is_active).length >= MAX_ACTIVE_HABITS;
 
   return (
-    <Dialog open={habitFormOpen} onOpenChange={(open) => !open && closeHabitForm()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {editingHabitId ? "Edit Habit" : "New Habit"}
-          </DialogTitle>
-        </DialogHeader>
+    <Dialog
+      open={habitFormOpen}
+      onOpenChange={(open) => !open && closeHabitForm()}
+    >
+      <DialogContent
+        showCloseButton={false}
+        className="overflow-hidden p-0 sm:max-w-[520px] gap-0"
+        style={{
+          background: "var(--sf-surface)",
+          border: "1px solid var(--sf-border-strong)",
+          borderRadius: 20,
+          boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
+        }}
+      >
+        <DialogTitle className="sr-only">
+          {editingHabitId ? "Edit habit" : "New habit"}
+        </DialogTitle>
 
-        {!editingHabitId && (
-          <div className="mb-4">
-            <Label className="text-sm text-muted-foreground mb-2 block">
-              Quick templates
-            </Label>
-            <div className="flex flex-wrap gap-2">
-              {HABIT_TEMPLATES.map((t, i) => (
-                <Button
-                  key={t.name}
-                  size="sm"
-                  variant="outline"
-                  onClick={() => applyTemplate(i)}
-                  className="text-xs"
-                >
-                  {t.icon} {t.name}
-                </Button>
-              ))}
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-6 py-5"
+          style={{ borderBottom: "1px solid var(--sf-divider)" }}
+        >
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">
+              {editingHabitId ? "Edit habit" : "New habit"}
+            </h2>
+            <div
+              className="mt-0.5 text-xs"
+              style={{ color: "var(--sf-text-3)" }}
+            >
+              {editingHabitId
+                ? "Tweak the details and save."
+                : "Pick a template or build your own"}
             </div>
           </div>
-        )}
+          <button
+            onClick={closeHabitForm}
+            className="flex h-7 w-7 items-center justify-center rounded-lg border p-0"
+            style={{
+              background: "var(--sf-surface-2)",
+              borderColor: "var(--sf-border)",
+              color: "var(--sf-text-3)",
+            }}
+            aria-label="Close"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path
+                d="M3 3l6 6M9 3l-6 6"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Name</Label>
-            <Input
+        <div className="flex max-h-[70vh] flex-col gap-5 overflow-y-auto px-6 py-6">
+          {/* Templates */}
+          {!editingHabitId && (
+            <div>
+              <div className="sf-eyebrow mb-2.5">Templates</div>
+              <div className="grid grid-cols-3 gap-2">
+                {HABIT_TEMPLATES.map((t, i) => (
+                  <button
+                    key={t.name}
+                    type="button"
+                    onClick={() => applyTemplate(i)}
+                    className="flex items-center gap-2.5 rounded-[10px] border px-3 py-2.5 text-left text-[13px] font-medium"
+                    style={{
+                      background: "var(--sf-surface-2)",
+                      borderColor: "var(--sf-border)",
+                      color: "var(--sf-text)",
+                    }}
+                  >
+                    <span className="text-base">{t.icon}</span>
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Name */}
+          <label className="flex flex-col gap-1.5">
+            <span className="sf-eyebrow">Name</span>
+            <input
               value={name}
               onChange={(e) => setName(e.target.value.slice(0, 50))}
-              placeholder="e.g. Morning run"
-              required
+              placeholder="e.g. Cold shower"
               maxLength={50}
+              className="rounded-lg border px-3.5 py-2.5 text-sm outline-none"
+              style={{
+                background: "rgba(20,17,14,0.6)",
+                borderColor: "var(--sf-border)",
+                color: "var(--sf-text)",
+              }}
             />
-            <span className="text-xs text-muted-foreground">{name.length}/50</span>
-          </div>
+          </label>
 
-          <div className="space-y-2">
-            <Label>Icon</Label>
-            <div className="flex flex-wrap gap-2">
-              {EMOJIS.map((e) => (
+          {/* Icon */}
+          <div>
+            <div className="sf-eyebrow mb-2.5">Icon</div>
+            <div className="grid grid-cols-8 gap-1.5">
+              {ICONS.map((ic) => (
                 <button
-                  key={e}
+                  key={ic}
                   type="button"
-                  onClick={() => setIcon(e)}
-                  className={cn(
-                    "h-10 w-10 rounded-lg text-xl flex items-center justify-center transition-all",
-                    icon === e ? "bg-primary/20 ring-2 ring-primary" : "bg-muted hover:bg-muted/80"
-                  )}
+                  onClick={() => setIcon(ic)}
+                  className="rounded-[9px] border text-base"
+                  style={{
+                    aspectRatio: "1 / 1",
+                    background:
+                      icon === ic
+                        ? `${color}33`
+                        : "var(--sf-surface-2)",
+                    borderColor:
+                      icon === ic ? `${color}80` : "var(--sf-border)",
+                    color: "var(--sf-text)",
+                  }}
                 >
-                  {e}
+                  {ic}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Color</Label>
+          {/* Color */}
+          <div>
+            <div className="sf-eyebrow mb-2.5">Color</div>
             <div className="flex flex-wrap gap-2">
               {HABIT_COLORS.map((c) => (
                 <button
                   key={c}
                   type="button"
                   onClick={() => setColor(c)}
-                  className={cn(
-                    "h-8 w-8 rounded-full transition-all",
-                    color === c && "ring-2 ring-offset-2 ring-offset-background ring-white"
-                  )}
-                  style={{ backgroundColor: c }}
+                  className="h-7 w-7 rounded-full p-0"
+                  style={{
+                    background: c,
+                    boxShadow:
+                      color === c
+                        ? `0 0 0 2px var(--sf-bg), 0 0 0 4px ${c}`
+                        : "none",
+                  }}
                 />
               ))}
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Type</Label>
-            <Select value={habitType} onValueChange={(v) => setHabitType(v as HabitType)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="binary">Yes/No (Binary)</SelectItem>
-                <SelectItem value="quantity">Quantity (e.g., 8 glasses)</SelectItem>
-                <SelectItem value="duration">Duration (e.g., 30 minutes)</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Type */}
+          <div>
+            <div className="sf-eyebrow mb-2.5">Type</div>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                {
+                  v: "binary" as const,
+                  l: "Yes / No",
+                  s: "Did you do it?",
+                },
+                {
+                  v: "quantity" as const,
+                  l: "Quantity",
+                  s: "8 glasses, 5 reps…",
+                },
+                {
+                  v: "duration" as const,
+                  l: "Duration",
+                  s: "30 min, 1 hour…",
+                },
+              ].map((t) => {
+                const active = habitType === t.v;
+                return (
+                  <button
+                    key={t.v}
+                    type="button"
+                    onClick={() => setHabitType(t.v)}
+                    className="rounded-[10px] border p-3 text-left"
+                    style={{
+                      background: active
+                        ? "var(--sf-surface-3)"
+                        : "var(--sf-surface-2)",
+                      borderColor: active
+                        ? "var(--sf-border-strong)"
+                        : "var(--sf-border)",
+                    }}
+                  >
+                    <div
+                      className="mb-0.5 text-[13px] font-semibold"
+                      style={{ color: "var(--sf-text)" }}
+                    >
+                      {t.l}
+                    </div>
+                    <div
+                      className="text-[11px]"
+                      style={{ color: "var(--sf-text-3)" }}
+                    >
+                      {t.s}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
+          {/* Target/Unit */}
           {habitType !== "binary" && (
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Target</Label>
-                <Input
+              <label className="flex flex-col gap-1.5">
+                <span className="sf-eyebrow">Target</span>
+                <input
                   type="number"
+                  min={1}
                   value={targetValue}
                   onChange={(e) => setTargetValue(e.target.value)}
-                  placeholder="e.g. 8"
-                  min={1}
+                  placeholder="8"
+                  className="rounded-lg border px-3.5 py-2.5 text-sm outline-none"
+                  style={{
+                    background: "rgba(20,17,14,0.6)",
+                    borderColor: "var(--sf-border)",
+                    color: "var(--sf-text)",
+                  }}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>Unit</Label>
-                <Input
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="sf-eyebrow">Unit</span>
+                <input
                   value={targetUnit}
                   onChange={(e) => setTargetUnit(e.target.value)}
-                  placeholder="e.g. glasses"
+                  placeholder="glasses"
+                  className="rounded-lg border px-3.5 py-2.5 text-sm outline-none"
+                  style={{
+                    background: "rgba(20,17,14,0.6)",
+                    borderColor: "var(--sf-border)",
+                    color: "var(--sf-text)",
+                  }}
                 />
-              </div>
+              </label>
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label>Frequency</Label>
-            <Select value={frequency} onValueChange={(v) => setFrequency(v as Frequency)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="daily">Every day</SelectItem>
-                <SelectItem value="weekdays">Weekdays only</SelectItem>
-                <SelectItem value="weekends">Weekends only</SelectItem>
-                <SelectItem value="custom">Custom days</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Frequency */}
+          <div>
+            <div className="sf-eyebrow mb-2.5">Frequency</div>
+            <div className="mb-2.5 flex gap-1">
+              {(["daily", "weekdays", "weekends", "custom"] as Frequency[]).map(
+                (f) => {
+                  const active = frequency === f;
+                  return (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setFrequency(f)}
+                      className="flex-1 rounded-lg border py-1.5 text-xs font-medium capitalize"
+                      style={{
+                        background: active
+                          ? "var(--sf-surface-3)"
+                          : "var(--sf-surface-2)",
+                        borderColor: active
+                          ? "var(--sf-border-strong)"
+                          : "var(--sf-border)",
+                        color: active
+                          ? "var(--sf-text)"
+                          : "var(--sf-text-3)",
+                      }}
+                    >
+                      {f}
+                    </button>
+                  );
+                }
+              )}
+            </div>
+            {frequency === "custom" && (
+              <div className="flex gap-1">
+                {DAY_LETTERS.map((d, i) => {
+                  const active = customDays.includes(i);
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() =>
+                        setCustomDays((prev) =>
+                          prev.includes(i)
+                            ? prev.filter((x) => x !== i)
+                            : [...prev, i]
+                        )
+                      }
+                      className="flex-1 rounded-lg border text-xs font-semibold"
+                      style={{
+                        aspectRatio: "1 / 1",
+                        maxHeight: 36,
+                        background: active
+                          ? "var(--sf-surface-3)"
+                          : "var(--sf-surface-2)",
+                        borderColor: active
+                          ? "var(--sf-border-strong)"
+                          : "var(--sf-border)",
+                        color: active
+                          ? "var(--sf-text)"
+                          : "var(--sf-text-3)",
+                      }}
+                    >
+                      {d}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {frequency === "custom" && (
-            <div className="flex gap-2">
-              {DAYS.map((day, i) => (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() =>
-                    setCustomDays((prev) =>
-                      prev.includes(i)
-                        ? prev.filter((d) => d !== i)
-                        : [...prev, i]
-                    )
-                  }
-                  className={cn(
-                    "h-10 w-10 rounded-lg text-xs font-medium transition-all",
-                    customDays.includes(i)
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {day}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {canAdd && (
-            <p className="text-sm text-danger">
+          {atLimit && (
+            <p className="text-xs" style={{ color: "var(--sf-danger)" }}>
               Maximum {MAX_ACTIVE_HABITS} active habits reached.
             </p>
           )}
+        </div>
 
-          <Button type="submit" className="w-full" disabled={saving || canAdd}>
-            {saving ? "Saving..." : editingHabitId ? "Update Habit" : "Add Habit"}
-          </Button>
-        </form>
+        {/* Footer */}
+        <div
+          className="flex justify-end gap-2 px-6 py-4"
+          style={{ borderTop: "1px solid var(--sf-divider)" }}
+        >
+          <button
+            type="button"
+            onClick={closeHabitForm}
+            className="rounded-lg border px-4 py-2 text-sm font-semibold"
+            style={{
+              background: "var(--sf-surface-2)",
+              borderColor: "var(--sf-border)",
+              color: "var(--sf-text)",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={saving || atLimit || !name.trim()}
+            className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60"
+            style={{ background: "var(--sf-text)", color: "var(--sf-bg)" }}
+          >
+            {saving
+              ? "Saving…"
+              : editingHabitId
+                ? "Save changes"
+                : "Add habit"}
+          </button>
+        </div>
       </DialogContent>
     </Dialog>
   );

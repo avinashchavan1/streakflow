@@ -4,10 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { AuthShell, AuthField } from "@/components/auth/AuthShell";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -27,16 +24,13 @@ export default function SignupPage() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { display_name: displayName },
-      },
+      options: { data: { display_name: displayName } },
     });
 
     if (error) {
       setError(error.message);
       setLoading(false);
     } else if (data.session) {
-      // Email confirmation disabled — user already signed in
       router.push("/dashboard");
       router.refresh();
     } else {
@@ -45,89 +39,144 @@ export default function SignupPage() {
     }
   }
 
+  async function handleGoogle() {
+    const supabase = createClient();
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+  }
+
   if (success) {
     return (
-      <div className="flex flex-1 min-h-screen items-center justify-center px-4">
-        <Card className="w-full max-w-md glass-card border-border">
-          <CardContent className="pt-6 text-center">
-            <div className="text-4xl mb-4">📧</div>
-            <h2 className="text-xl font-bold mb-2">Check your email</h2>
-            <p className="text-muted-foreground">
-              We sent a confirmation link to <strong>{email}</strong>.
-              Click it to activate your account.
-            </p>
-            <Button
-              variant="outline"
-              className="mt-6"
-              onClick={() => router.push("/login")}
-            >
-              Back to Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <AuthShell>
+        <div className="text-center">
+          <div className="mb-4 text-4xl">📧</div>
+          <h1 className="mb-2 text-2xl font-semibold tracking-tight">
+            Check your email
+          </h1>
+          <p
+            className="mb-6 text-sm leading-relaxed"
+            style={{ color: "var(--sf-text-3)" }}
+          >
+            We sent a confirmation link to{" "}
+            <strong style={{ color: "var(--sf-text)" }}>{email}</strong>. Click
+            it to activate your account.
+          </p>
+          <Link
+            href="/login"
+            className="inline-block rounded-lg border px-4 py-2.5 text-sm font-semibold"
+            style={{
+              background: "var(--sf-surface-2)",
+              borderColor: "var(--sf-border)",
+            }}
+          >
+            Back to sign in
+          </Link>
+        </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="flex flex-1 min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-md glass-card border-border">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold">
-            <span className="text-primary">Streak</span>Flow
-          </CardTitle>
-          <CardDescription>Create your account and start building habits</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSignup} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Display Name</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Your name"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Min 6 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
-            {error && <p className="text-sm text-danger">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating account..." : "Create Account"}
-            </Button>
-          </form>
+    <AuthShell>
+      <h1 className="mb-1.5 text-2xl font-semibold tracking-tight">
+        Start your first streak
+      </h1>
+      <p className="mb-6 text-sm" style={{ color: "var(--sf-text-3)" }}>
+        Free, forever. No card required.
+      </p>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link href="/login" className="text-primary hover:underline">
-              Sign in
-            </Link>
+      {/* Google */}
+      <button
+        type="button"
+        onClick={handleGoogle}
+        className="mb-4 flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-3 text-sm font-semibold"
+        style={{
+          background: "var(--sf-surface-2)",
+          borderColor: "var(--sf-border)",
+          color: "var(--sf-text)",
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 18 18">
+          <path
+            d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 01-1.8 2.71v2.26h2.92a8.78 8.78 0 002.68-6.61z"
+            fill="#4285F4"
+          />
+          <path
+            d="M9 18a8.6 8.6 0 005.96-2.18l-2.91-2.26a5.4 5.4 0 01-8.09-2.85H.96v2.33A9 9 0 009 18z"
+            fill="#34A853"
+          />
+          <path
+            d="M3.96 10.71A5.4 5.4 0 013.68 9c0-.6.1-1.18.28-1.71V4.96H.96A9 9 0 000 9c0 1.45.35 2.82.96 4.04l3-2.33z"
+            fill="#FBBC05"
+          />
+          <path
+            d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 009 0 9 9 0 00.96 4.96l3 2.33A5.4 5.4 0 019 3.58z"
+            fill="#EA4335"
+          />
+        </svg>
+        Continue with Google
+      </button>
+
+      <div
+        className="mb-4 flex items-center gap-3 text-[11px]"
+        style={{ color: "var(--sf-text-3)" }}
+      >
+        <div className="h-px flex-1" style={{ background: "var(--sf-border)" }} />
+        <span>or</span>
+        <div className="h-px flex-1" style={{ background: "var(--sf-border)" }} />
+      </div>
+
+      <form onSubmit={handleSignup} className="flex flex-col gap-3">
+        <AuthField
+          label="Display name"
+          placeholder="Mira K."
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          required
+        />
+        <AuthField
+          label="Email"
+          type="email"
+          placeholder="mira@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <AuthField
+          label="Password"
+          type="password"
+          placeholder="At least 6 characters"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          minLength={6}
+          required
+        />
+        {error && (
+          <p className="text-xs" style={{ color: "var(--sf-danger)" }}>
+            {error}
           </p>
-        </CardContent>
-      </Card>
-    </div>
+        )}
+        <button
+          type="submit"
+          disabled={loading}
+          className="mt-1 rounded-lg px-3 py-3 text-sm font-semibold disabled:opacity-60"
+          style={{ background: "var(--sf-text)", color: "var(--sf-bg)" }}
+        >
+          {loading ? "Creating account…" : "Create account"}
+        </button>
+      </form>
+
+      <div
+        className="mt-5 text-center text-xs"
+        style={{ color: "var(--sf-text-3)" }}
+      >
+        Already have one?{" "}
+        <Link href="/login" style={{ color: "var(--sf-text)" }}>
+          Sign in
+        </Link>
+      </div>
+    </AuthShell>
   );
 }

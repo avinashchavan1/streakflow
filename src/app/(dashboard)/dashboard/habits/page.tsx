@@ -1,24 +1,68 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useHabitStore } from "@/lib/store/habitStore";
 import { useUiStore } from "@/lib/store/uiStore";
+import { createClient } from "@/lib/supabase/client";
 import { HabitForm } from "@/components/habits/HabitForm";
 import { Sparkline } from "@/components/dashboard/Sparkline";
 import { FlameIcon } from "@/components/dashboard/StackedRing";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { format, subDays } from "date-fns";
+import type { HabitLog } from "@/types";
 
 const CAPITALIZE = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const SPARK_DAYS = 30;
 
 export default function HabitsPage() {
   const { habits, loading, fetchHabits, deleteHabit } = useHabitStore();
   const { openHabitForm } = useUiStore();
   const [tab, setTab] = useState<"active" | "archived">("active");
+  const [logs, setLogs] = useState<HabitLog[]>([]);
 
   useEffect(() => {
     fetchHabits();
   }, [fetchHabits]);
+
+  useEffect(() => {
+    async function loadLogs() {
+      const supabase = createClient();
+      const since = format(subDays(new Date(), SPARK_DAYS - 1), "yyyy-MM-dd");
+      const { data } = await supabase
+        .from("habit_logs")
+        .select("*")
+        .gte("log_date", since);
+      setLogs(data ?? []);
+    }
+    loadLogs();
+  }, []);
+
+  const sparkByHabit = useMemo(() => {
+    const map = new Map<string, number[]>();
+    const today = new Date();
+    for (const habit of habits) {
+      const habitLogs = logs.filter((l) => l.habit_id === habit.id);
+      const byDate = new Map<string, HabitLog>();
+      for (const l of habitLogs) byDate.set(l.log_date, l);
+      const series: number[] = [];
+      for (let i = SPARK_DAYS - 1; i >= 0; i--) {
+        const d = format(subDays(today, i), "yyyy-MM-dd");
+        const log = byDate.get(d);
+        if (!log) {
+          series.push(0);
+        } else if (habit.habit_type === "binary") {
+          series.push(log.completed ? 1 : 0);
+        } else if (habit.target_value && habit.target_value > 0) {
+          series.push(Math.min(1, (log.value ?? 0) / habit.target_value));
+        } else {
+          series.push(log.completed ? 1 : 0);
+        }
+      }
+      map.set(habit.id, series);
+    }
+    return map;
+  }, [habits, logs]);
 
   const visible = habits.filter((h) =>
     tab === "active" ? h.is_active : !h.is_active
@@ -133,10 +177,7 @@ export default function HabitsPage() {
                 ? "Binary"
                 : `${CAPITALIZE(h.habit_type)} · ${h.target_value} ${h.target_unit ?? ""}`;
             const freqLabel = CAPITALIZE(h.frequency);
-            // Synthetic 30-day sparkline based on streak (placeholder — real wiring later)
-            const spark = Array.from({ length: 30 }, (_, i) =>
-              i >= 30 - current ? 1 : Math.random() > 0.3 ? 1 : 0
-            );
+            const spark = sparkByHabit.get(h.id) ?? Array(SPARK_DAYS).fill(0);
             return (
               <div
                 key={h.id}

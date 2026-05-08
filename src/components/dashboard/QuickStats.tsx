@@ -42,7 +42,7 @@ export function QuickStats() {
   const { habits } = useHabitStore();
 
   const topStreakHabit = habits
-    .filter((h) => h.streak)
+    .filter((h) => h.is_active && h.streak)
     .sort(
       (a, b) =>
         (b.streak?.current_streak ?? 0) - (a.streak?.current_streak ?? 0)

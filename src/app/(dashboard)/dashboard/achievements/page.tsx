@@ -113,7 +113,7 @@ export default function AchievementsPage() {
     const activeHabits = habits.filter((h) => h.is_active);
     const topStreak = Math.max(
       0,
-      ...habits.map((h) => h.streak?.current_streak ?? 0)
+      ...activeHabits.map((h) => h.streak?.current_streak ?? 0)
     );
     const longestEverStreak = Math.max(
       0,

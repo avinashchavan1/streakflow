@@ -21,8 +21,8 @@ function valueLabel(h: HabitWithStreak): string {
 export function RingLegend() {
   const { habits } = useHabitStore();
 
-  const todayHabits = habits.filter((h) =>
-    isDayScheduled(new Date(), h.frequency, h.custom_days)
+  const todayHabits = habits.filter(
+    (h) => h.is_active && isDayScheduled(new Date(), h.frequency, h.custom_days)
   );
 
   if (todayHabits.length === 0) return null;

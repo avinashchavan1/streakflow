@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import type { AiInsight, InsightType } from "@/types";
 
@@ -30,6 +30,7 @@ export default function InsightsPage() {
     const { data } = await supabase
       .from("ai_insights")
       .select("*")
+      .not("message", "like", "perfect-day-bonus:%")
       .order("generated_at", { ascending: false })
       .limit(20);
     setInsights(data ?? []);
@@ -136,10 +137,7 @@ export default function InsightsPage() {
         </div>
       ) : (
         <div className="grid gap-3.5 lg:grid-cols-2">
-          {insights
-            // Hide internal perfect-day-bonus marker rows
-            .filter((i) => !i.message.startsWith("perfect-day-bonus:"))
-            .map((ins) => {
+          {insights.map((ins) => {
             const meta = TYPE_META[ins.insight_type];
             // Split on first sentence-ending punctuation, falling back to first newline.
             const msg = ins.message.trim();
@@ -221,7 +219,7 @@ export default function InsightsPage() {
                   className="mt-4 text-[11px]"
                   style={{ color: "var(--sf-text-3)" }}
                 >
-                  Generated {format(new Date(ins.generated_at), "MMM d")}
+                  Generated {format(parseISO(ins.generated_at), "MMM d")}
                 </div>
               </div>
             );

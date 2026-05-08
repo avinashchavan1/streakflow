@@ -35,6 +35,7 @@ export async function POST() {
       .select("id, generated_at")
       .eq("user_id", user.id)
       .gte("generated_at", oneDayAgo)
+      .not("message", "like", "perfect-day-bonus:%")
       .limit(1);
 
     if (recentInsight && recentInsight.length > 0) {
@@ -153,6 +154,14 @@ export async function POST() {
     return NextResponse.json({ success: true, count: insightRows.length });
   } catch (err) {
     console.error("Insight generation error:", err);
+    const isCreditIssue =
+      err instanceof Error && /credit balance/i.test(err.message);
+    if (isCreditIssue) {
+      return NextResponse.json(
+        { error: "AI provider out of credits. Try again later." },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

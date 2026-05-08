@@ -136,10 +136,31 @@ export default function InsightsPage() {
         </div>
       ) : (
         <div className="grid gap-3.5 lg:grid-cols-2">
-          {insights.map((ins) => {
+          {insights
+            // Hide internal perfect-day-bonus marker rows
+            .filter((i) => !i.message.startsWith("perfect-day-bonus:"))
+            .map((ins) => {
             const meta = TYPE_META[ins.insight_type];
-            const headline = ins.message.split("\n")[0]?.slice(0, 80) ?? "";
-            const body = ins.message.slice(headline.length).trim();
+            // Split on first sentence-ending punctuation, falling back to first newline.
+            const msg = ins.message.trim();
+            let cut = -1;
+            for (let i = 0; i < msg.length; i++) {
+              const ch = msg[i];
+              if (
+                (ch === "." || ch === "!" || ch === "?") &&
+                msg[i + 1] !== undefined &&
+                msg[i + 1] !== ch
+              ) {
+                cut = i + 1;
+                break;
+              }
+              if (ch === "\n") {
+                cut = i;
+                break;
+              }
+            }
+            const headline = cut > 0 ? msg.slice(0, cut).trim() : msg;
+            const body = cut > 0 ? msg.slice(cut).trim() : "";
             return (
               <div
                 key={ins.id}

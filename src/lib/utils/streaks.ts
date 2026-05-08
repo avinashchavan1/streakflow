@@ -7,20 +7,38 @@ export function calculateNewStreak(
   habit: Habit,
   completionDate: string,
   completing: boolean
-): { current_streak: number; longest_streak: number; last_completed_date: string | null } {
+): {
+  current_streak: number;
+  longest_streak: number;
+  last_completed_date: string | null;
+} {
+  // Uncompleting today: if today was the streak's last_completed_date,
+  // walk back to the previous scheduled day that has a confirmed completion.
+  // Without scanning logs we can only safely roll back by one and clear if 0.
   if (!completing) {
+    const wasToday = streak?.last_completed_date === completionDate;
     const currentStreak = streak?.current_streak ?? 0;
+    const newStreak = wasToday
+      ? Math.max(0, currentStreak - 1)
+      : currentStreak;
     return {
-      current_streak: Math.max(0, currentStreak - (streak?.last_completed_date === completionDate ? 1 : 0)),
+      current_streak: newStreak,
       longest_streak: streak?.longest_streak ?? 0,
-      last_completed_date: streak?.last_completed_date === completionDate
-        ? findPreviousScheduledDate(habit, completionDate)
-        : streak?.last_completed_date ?? null,
+      last_completed_date:
+        wasToday && newStreak === 0
+          ? null
+          : wasToday
+            ? findPreviousScheduledDate(habit, completionDate)
+            : streak?.last_completed_date ?? null,
     };
   }
 
   if (!streak || !streak.last_completed_date) {
-    return { current_streak: 1, longest_streak: 1, last_completed_date: completionDate };
+    return {
+      current_streak: 1,
+      longest_streak: Math.max(1, streak?.longest_streak ?? 0),
+      last_completed_date: completionDate,
+    };
   }
 
   const lastDate = streak.last_completed_date;
@@ -32,7 +50,11 @@ export function calculateNewStreak(
     };
   }
 
-  const isConsecutive = isConsecutiveScheduledDay(habit, lastDate, completionDate);
+  const isConsecutive = isConsecutiveScheduledDay(
+    habit,
+    lastDate,
+    completionDate
+  );
 
   if (isConsecutive) {
     const newStreak = streak.current_streak + 1;
@@ -50,6 +72,8 @@ export function calculateNewStreak(
   };
 }
 
+// True iff the only scheduled day strictly between lastDateStr and currentDateStr
+// is none — i.e. the user did not skip a scheduled day.
 function isConsecutiveScheduledDay(
   habit: Habit,
   lastDateStr: string,
@@ -58,6 +82,8 @@ function isConsecutiveScheduledDay(
   const lastDate = parseISO(lastDateStr);
   const currentDate = parseISO(currentDateStr);
 
+  if (currentDate <= lastDate) return false;
+
   let checkDate = subDays(currentDate, 1);
   while (checkDate > lastDate) {
     if (isDayScheduled(checkDate, habit.frequency, habit.custom_days)) {
@@ -65,8 +91,7 @@ function isConsecutiveScheduledDay(
     }
     checkDate = subDays(checkDate, 1);
   }
-
-  return formatDate(checkDate) === lastDateStr || formatDate(lastDate) === lastDateStr;
+  return true;
 }
 
 function findPreviousScheduledDate(
@@ -74,31 +99,12 @@ function findPreviousScheduledDate(
   fromDateStr: string
 ): string | null {
   const fromDate = parseISO(fromDateStr);
-  for (let i = 1; i <= 7; i++) {
+  // Look back up to 60 days for the previous scheduled date.
+  for (let i = 1; i <= 60; i++) {
     const d = subDays(fromDate, i);
     if (isDayScheduled(d, habit.frequency, habit.custom_days)) {
       return formatDate(d);
     }
   }
   return null;
-}
-
-export function getStreakFireLevel(streak: number): string {
-  if (streak >= 100) return "🔥🔥🔥🔥🔥";
-  if (streak >= 60) return "🔥🔥🔥🔥";
-  if (streak >= 30) return "🔥🔥🔥";
-  if (streak >= 14) return "🔥🔥";
-  if (streak >= 3) return "🔥";
-  return "";
-}
-
-export function shouldAutoFreeze(
-  streak: Streak,
-  freezesAvailable: number
-): boolean {
-  return streak.current_streak > 0 && freezesAvailable > 0;
-}
-
-export function earnedFreezes(currentStreak: number): number {
-  return Math.min(Math.floor(currentStreak / 7), 3);
 }

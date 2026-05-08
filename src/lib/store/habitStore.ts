@@ -1,17 +1,19 @@
 "use client";
 
 import { create } from "zustand";
-import type { HabitWithStreak, Habit, HabitLog, Streak } from "@/types";
+import type { HabitWithStreak, Habit } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import { today } from "@/lib/utils/dates";
 import { calculateNewStreak } from "@/lib/utils/streaks";
-import { getCompletionXp, PERFECT_DAY_BONUS } from "@/lib/utils/xp";
+import { useGamificationStore } from "@/lib/store/gamificationStore";
+import { checkBadgeUnlocks } from "@/lib/utils/badges";
+import { subDays, format } from "date-fns";
 
 interface HabitState {
   habits: HabitWithStreak[];
   loading: boolean;
   todayDate: string;
-  fetchHabits: () => Promise<void>;
+  fetchHabits: (force?: boolean) => Promise<void>;
   toggleHabit: (habitId: string) => Promise<void>;
   logHabitValue: (habitId: string, value: number) => Promise<void>;
   addHabit: (habit: Partial<Habit>) => Promise<void>;
@@ -20,42 +22,98 @@ interface HabitState {
   reorderHabits: (habits: HabitWithStreak[]) => Promise<void>;
 }
 
+let inflightFetch: Promise<void> | null = null;
+let lastFetchAt = 0;
+const FETCH_DEDUPE_MS = 1000;
+
+async function awardBadges(habits: HabitWithStreak[]) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  const since = format(subDays(new Date(), 90), "yyyy-MM-dd");
+  const [{ data: profile }, { data: earned }, { data: logs }] =
+    await Promise.all([
+      supabase.from("profiles").select("*").eq("id", user.id).single(),
+      supabase.from("user_badges").select("badge_id").eq("user_id", user.id),
+      supabase.from("habit_logs").select("*").gte("log_date", since),
+    ]);
+  if (!profile) return;
+
+  const newly = checkBadgeUnlocks({
+    profile,
+    habits,
+    streaks: habits
+      .map((h) => h.streak)
+      .filter((s): s is NonNullable<typeof s> => !!s),
+    logs: logs ?? [],
+    earnedBadgeIds: (earned ?? []).map((e) => e.badge_id),
+  });
+  if (newly.length === 0) return;
+  await supabase
+    .from("user_badges")
+    .insert(newly.map((id) => ({ user_id: user.id, badge_id: id })));
+}
+
 export const useHabitStore = create<HabitState>((set, get) => ({
   habits: [],
   loading: true,
   todayDate: today(),
 
-  fetchHabits: async () => {
-    const supabase = createClient();
-    const todayStr = today();
+  fetchHabits: async (force = false) => {
+    const now = Date.now();
+    if (!force && inflightFetch) return inflightFetch;
+    if (!force && now - lastFetchAt < FETCH_DEDUPE_MS) return;
 
-    const { data: habits } = await supabase
-      .from("habits")
-      .select("*")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
+    inflightFetch = (async () => {
+      const supabase = createClient();
+      const todayStr = today();
 
-    if (!habits) { set({ loading: false }); return; }
+      const { data: habits } = await supabase
+        .from("habits")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
 
-    const habitIds = habits.map((h) => h.id);
+      if (!habits) {
+        set({ loading: false });
+        return;
+      }
 
-    const [{ data: streaks }, { data: logs }] = await Promise.all([
-      supabase.from("streaks").select("*").in("habit_id", habitIds),
-      supabase.from("habit_logs").select("*").in("habit_id", habitIds).eq("log_date", todayStr),
-    ]);
+      const habitIds = habits.map((h) => h.id);
 
-    const habitsWithStreaks: HabitWithStreak[] = habits.map((h) => ({
-      ...h,
-      streak: streaks?.find((s) => s.habit_id === h.id) ?? null,
-      todayLog: logs?.find((l) => l.habit_id === h.id) ?? null,
-    }));
+      const [{ data: streaks }, { data: logs }] = await Promise.all([
+        supabase.from("streaks").select("*").in("habit_id", habitIds),
+        supabase
+          .from("habit_logs")
+          .select("*")
+          .in("habit_id", habitIds)
+          .eq("log_date", todayStr),
+      ]);
 
-    set({ habits: habitsWithStreaks, loading: false, todayDate: todayStr });
+      const habitsWithStreaks: HabitWithStreak[] = habits.map((h) => ({
+        ...h,
+        streak: streaks?.find((s) => s.habit_id === h.id) ?? null,
+        todayLog: logs?.find((l) => l.habit_id === h.id) ?? null,
+      }));
+
+      set({ habits: habitsWithStreaks, loading: false, todayDate: todayStr });
+      lastFetchAt = Date.now();
+    })();
+
+    try {
+      await inflightFetch;
+    } finally {
+      inflightFetch = null;
+    }
   },
 
   toggleHabit: async (habitId: string) => {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
 
     const todayStr = today();
@@ -67,103 +125,130 @@ export const useHabitStore = create<HabitState>((set, get) => ({
 
     const { data: log } = await supabase
       .from("habit_logs")
-      .upsert({
-        habit_id: habitId,
-        user_id: user.id,
-        log_date: todayStr,
-        completed: completing,
-        value: completing ? (habit.target_value ?? 1) : null,
-      }, { onConflict: "habit_id,log_date" })
+      .upsert(
+        {
+          habit_id: habitId,
+          user_id: user.id,
+          log_date: todayStr,
+          completed: completing,
+          value: completing ? habit.target_value ?? 1 : null,
+        },
+        { onConflict: "habit_id,log_date" }
+      )
       .select()
       .single();
 
-    const newStreakData = calculateNewStreak(habit.streak, habit, todayStr, completing);
+    const newStreakData = calculateNewStreak(
+      habit.streak,
+      habit,
+      todayStr,
+      completing
+    );
 
     const { data: streak } = await supabase
       .from("streaks")
-      .upsert({
-        habit_id: habitId,
-        user_id: user.id,
-        ...newStreakData,
-      }, { onConflict: "habit_id" })
+      .upsert(
+        {
+          habit_id: habitId,
+          user_id: user.id,
+          ...newStreakData,
+        },
+        { onConflict: "habit_id" }
+      )
       .select()
       .single();
-
-    if (completing) {
-      const xpGain = getCompletionXp(habit.habit_type, newStreakData.current_streak);
-      await supabase.rpc("increment_xp", { uid: user.id, amount: xpGain });
-
-      const allHabits = get().habits;
-      const allCompleted = allHabits.every((h) =>
-        h.id === habitId ? true : h.todayLog?.completed
-      );
-      if (allCompleted && allHabits.length > 0) {
-        await supabase.rpc("increment_xp", { uid: user.id, amount: PERFECT_DAY_BONUS });
-      }
-    }
 
     set((state) => ({
       habits: state.habits.map((h) =>
         h.id === habitId ? { ...h, todayLog: log, streak } : h
       ),
     }));
+
+    // Refresh profile (XP awarded server-side via trigger)
+    await useGamificationStore.getState().refreshProfile();
+    if (completing) await awardBadges(get().habits);
   },
 
   logHabitValue: async (habitId: string, value: number) => {
+    if (!Number.isFinite(value) || value < 0) return;
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
 
     const todayStr = today();
     const habit = get().habits.find((h) => h.id === habitId);
     if (!habit) return;
 
-    const completed = habit.target_value ? value >= habit.target_value : value > 0;
+    const completed = habit.target_value
+      ? value >= habit.target_value
+      : value > 0;
+    const wasCompleted = habit.todayLog?.completed ?? false;
 
     const { data: log } = await supabase
       .from("habit_logs")
-      .upsert({
-        habit_id: habitId,
-        user_id: user.id,
-        log_date: todayStr,
-        completed,
-        value,
-      }, { onConflict: "habit_id,log_date" })
+      .upsert(
+        {
+          habit_id: habitId,
+          user_id: user.id,
+          log_date: todayStr,
+          completed,
+          value,
+        },
+        { onConflict: "habit_id,log_date" }
+      )
       .select()
       .single();
 
-    if (completed && !habit.todayLog?.completed) {
-      const newStreakData = calculateNewStreak(habit.streak, habit, todayStr, true);
+    let nextStreak = habit.streak;
+    if (completed && !wasCompleted) {
+      const newStreakData = calculateNewStreak(
+        habit.streak,
+        habit,
+        todayStr,
+        true
+      );
       const { data: streak } = await supabase
         .from("streaks")
-        .upsert({
-          habit_id: habitId,
-          user_id: user.id,
-          ...newStreakData,
-        }, { onConflict: "habit_id" })
+        .upsert(
+          {
+            habit_id: habitId,
+            user_id: user.id,
+            ...newStreakData,
+          },
+          { onConflict: "habit_id" }
+        )
         .select()
         .single();
+      nextStreak = streak;
+    }
 
-      const xpGain = getCompletionXp(habit.habit_type, newStreakData.current_streak);
-      await supabase.rpc("increment_xp", { uid: user.id, amount: xpGain });
+    set((state) => ({
+      habits: state.habits.map((h) =>
+        h.id === habitId ? { ...h, todayLog: log, streak: nextStreak } : h
+      ),
+    }));
 
-      set((state) => ({
-        habits: state.habits.map((h) =>
-          h.id === habitId ? { ...h, todayLog: log, streak } : h
-        ),
-      }));
-    } else {
-      set((state) => ({
-        habits: state.habits.map((h) =>
-          h.id === habitId ? { ...h, todayLog: log } : h
-        ),
-      }));
+    if (completed && !wasCompleted) {
+      await useGamificationStore.getState().refreshProfile();
+      await awardBadges(get().habits);
     }
   },
 
   addHabit: async (habitData: Partial<Habit>) => {
+    if (!habitData.name || !habitData.name.trim()) return;
+    if (
+      habitData.target_value !== null &&
+      habitData.target_value !== undefined &&
+      (!Number.isFinite(habitData.target_value) || habitData.target_value < 1)
+    ) {
+      return;
+    }
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
 
     const maxOrder = Math.max(0, ...get().habits.map((h) => h.sort_order));
@@ -174,13 +259,16 @@ export const useHabitStore = create<HabitState>((set, get) => ({
       sort_order: maxOrder + 1,
     });
 
-    await get().fetchHabits();
+    await get().fetchHabits(true);
+    await awardBadges(get().habits);
   },
 
   updateHabit: async (id: string, updates: Partial<Habit>) => {
     const supabase = createClient();
     await supabase.from("habits").update(updates).eq("id", id);
-    await get().fetchHabits();
+    set((state) => ({
+      habits: state.habits.map((h) => (h.id === id ? { ...h, ...updates } : h)),
+    }));
   },
 
   deleteHabit: async (id: string) => {
@@ -191,11 +279,29 @@ export const useHabitStore = create<HabitState>((set, get) => ({
 
   reorderHabits: async (reordered: HabitWithStreak[]) => {
     const supabase = createClient();
+    const previous = get().habits;
     set({ habits: reordered });
 
+    // Single upsert with all reordered rows
     const updates = reordered.map((h, i) => ({ id: h.id, sort_order: i }));
-    for (const u of updates) {
-      await supabase.from("habits").update({ sort_order: u.sort_order }).eq("id", u.id);
+    const { error } = await supabase.from("habits").upsert(
+      updates.map((u) => {
+        const original = reordered.find((h) => h.id === u.id)!;
+        return {
+          id: u.id,
+          sort_order: u.sort_order,
+          // Required NOT NULL fields for upsert
+          user_id: original.user_id,
+          name: original.name,
+          icon: original.icon,
+          color: original.color,
+        };
+      }),
+      { onConflict: "id" }
+    );
+    if (error) {
+      // Roll back optimistic state on failure
+      set({ habits: previous });
     }
   },
 }));

@@ -34,11 +34,10 @@ export function HabitCard({ habit }: HabitCardProps) {
   async function handleToggle() {
     setToggling(true);
     await toggleHabit(habit.id);
-    if (!isCompleted) {
-      const habits = useHabitStore.getState().habits;
-      const allDone = habits.every((h) =>
-        h.id === habit.id ? true : h.todayLog?.completed
-      );
+    // After await, the store has updated. Just check fresh state — no manual fixup.
+    const fresh = useHabitStore.getState().habits;
+    if (!isCompleted && fresh.length > 0) {
+      const allDone = fresh.every((h) => h.todayLog?.completed === true);
       if (allDone) triggerConfetti();
     }
     setToggling(false);

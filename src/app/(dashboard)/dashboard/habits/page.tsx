@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { HabitForm } from "@/components/habits/HabitForm";
 import { Sparkline } from "@/components/dashboard/Sparkline";
 import { FlameIcon } from "@/components/dashboard/StackedRing";
+import { useConfirm } from "@/components/ui/confirm";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import type { HabitLog } from "@/types";
@@ -20,6 +21,7 @@ export default function HabitsPage() {
   const { openHabitForm } = useUiStore();
   const [tab, setTab] = useState<"active" | "archived">("active");
   const [logs, setLogs] = useState<HabitLog[]>([]);
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
   useEffect(() => {
     fetchHabits();
@@ -221,8 +223,15 @@ export default function HabitsPage() {
                       />
                     </button>
                     <button
-                      onClick={() => {
-                        if (confirm(`Delete "${h.name}"?`)) deleteHabit(h.id);
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: `Delete "${h.name}"?`,
+                          description:
+                            "Habit goes to archive. Logs and streak data are kept.",
+                          confirmLabel: "Delete",
+                          destructive: true,
+                        });
+                        if (ok) deleteHabit(h.id);
                       }}
                       className="rounded-md p-1.5 transition-colors hover:bg-[var(--sf-surface-2)]"
                       aria-label="Delete"
@@ -291,6 +300,7 @@ export default function HabitsPage() {
       )}
 
       <HabitForm />
+      {confirmDialog}
     </div>
   );
 }

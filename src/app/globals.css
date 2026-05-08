@@ -1,6 +1,4 @@
 @import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -83,7 +81,7 @@
   --sf-divider: rgba(255, 240, 220, 0.05);
   --sf-text: #f5efe7;
   --sf-text-2: #b8aea2;
-  --sf-text-3: #7a7268;
+  --sf-text-3: #9a9088;
   --sf-text-4: #4d4742;
   --sf-ring-move: #ff2d55;
   --sf-ring-mind: #00d9b2;
@@ -147,6 +145,17 @@
 
 .animate-scale-in {
   animation: scale-in 0.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .glass-card {

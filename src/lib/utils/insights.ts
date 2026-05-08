@@ -1,3 +1,4 @@
+import { parseISO } from "date-fns";
 import type { Habit, HabitLog, Streak } from "@/types";
 
 export function buildInsightPrompt(
@@ -14,7 +15,7 @@ export function buildInsightPrompt(
     const dayDistribution = new Map<number, number>();
     for (const log of habitLogs) {
       if (!log.completed) continue;
-      const day = new Date(log.log_date).getDay();
+      const day = parseISO(log.log_date).getDay();
       dayDistribution.set(day, (dayDistribution.get(day) ?? 0) + 1);
     }
 

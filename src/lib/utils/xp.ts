@@ -1,4 +1,6 @@
 import { LEVELS } from "@/lib/constants/levels";
+
+export { LEVELS };
 import type { LevelInfo } from "@/types";
 
 export function getLevelForXp(totalXp: number): LevelInfo {

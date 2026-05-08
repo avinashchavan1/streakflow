@@ -6,7 +6,7 @@ import { useUiStore } from "@/lib/store/uiStore";
 import { createClient } from "@/lib/supabase/client";
 import { Heatmap } from "@/components/dashboard/Heatmap";
 import { FlameIcon } from "@/components/dashboard/StackedRing";
-import { format, subDays } from "date-fns";
+import { format, parseISO, subDays } from "date-fns";
 import type { Habit, HabitLog, Streak } from "@/types";
 
 interface HabitDetailProps {
@@ -25,21 +25,20 @@ export function HabitDetail({ habitId }: HabitDetailProps) {
     async function load() {
       const supabase = createClient();
       const thirtyDaysAgo = format(subDays(new Date(), 30), "yyyy-MM-dd");
-      const [{ data: h }, { data: l }, { data: s }, { data: allL }] =
-        await Promise.all([
-          supabase.from("habits").select("*").eq("id", habitId).single(),
-          supabase
-            .from("habit_logs")
-            .select("*")
-            .eq("habit_id", habitId)
-            .gte("log_date", thirtyDaysAgo)
-            .order("log_date", { ascending: false }),
-          supabase.from("streaks").select("*").eq("habit_id", habitId).single(),
-          supabase
-            .from("habit_logs")
-            .select("*")
-            .eq("habit_id", habitId),
-        ]);
+      // Single broad fetch — split client-side. Avoids 2 round-trips and
+      // sorts deterministically.
+      const sixMonthsAgo = format(subDays(new Date(), 26 * 7), "yyyy-MM-dd");
+      const [{ data: h }, { data: allL }, { data: s }] = await Promise.all([
+        supabase.from("habits").select("*").eq("id", habitId).single(),
+        supabase
+          .from("habit_logs")
+          .select("*")
+          .eq("habit_id", habitId)
+          .gte("log_date", sixMonthsAgo)
+          .order("log_date", { ascending: false }),
+        supabase.from("streaks").select("*").eq("habit_id", habitId).single(),
+      ]);
+      const l = (allL ?? []).filter((r) => r.log_date >= thirtyDaysAgo);
       setHabit(h);
       setLogs(l ?? []);
       setStreak(s);
@@ -92,6 +91,9 @@ export function HabitDetail({ habitId }: HabitDetailProps) {
 
   const totalLogs = allLogs.filter((l) => l.completed).length;
   const freezesUsed = streak?.freeze_used_dates?.length ?? 0;
+  // allLogs is descending by log_date — earliest is last element.
+  const earliestLogDate =
+    allLogs.length > 0 ? allLogs[allLogs.length - 1].log_date : null;
 
   const typeLabel =
     habit.habit_type === "binary"
@@ -181,14 +183,8 @@ export function HabitDetail({ habitId }: HabitDetailProps) {
           label="Total logs"
           value={totalLogs}
           sub={
-            allLogs.length > 0
-              ? `Since ${format(
-                  new Date(
-                    allLogs[allLogs.length - 1]?.log_date ??
-                      habit.created_at
-                  ),
-                  "MMM d"
-                )}`
+            earliestLogDate
+              ? `Since ${format(parseISO(earliestLogDate), "MMM d")}`
               : "No logs yet"
           }
           color="var(--sf-text)"
@@ -284,7 +280,7 @@ export function HabitDetail({ habitId }: HabitDetailProps) {
                     className="w-20 text-[13px]"
                     style={{ color: "var(--sf-text-2)" }}
                   >
-                    {format(new Date(log.log_date), "EEE MMM d")}
+                    {format(parseISO(log.log_date), "EEE MMM d")}
                   </div>
                   <div className="flex-1">
                     <div

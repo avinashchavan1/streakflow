@@ -55,8 +55,8 @@ export default function DashboardPage() {
     fetchProfile();
   }, [fetchProfile]);
 
-  const todayHabits = habits.filter((h) =>
-    isDayScheduled(new Date(), h.frequency, h.custom_days)
+  const todayHabits = habits.filter(
+    (h) => h.is_active && isDayScheduled(new Date(), h.frequency, h.custom_days)
   );
   const completed = todayHabits.filter((h) => h.todayLog?.completed).length;
   const total = todayHabits.length;

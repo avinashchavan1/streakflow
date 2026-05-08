@@ -9,7 +9,7 @@ export function StreakDisplay() {
   const { profile } = useGamificationStore();
 
   const streaks = habits
-    .filter((h) => (h.streak?.current_streak ?? 0) > 0)
+    .filter((h) => h.is_active && (h.streak?.current_streak ?? 0) > 0)
     .sort(
       (a, b) =>
         (b.streak?.current_streak ?? 0) - (a.streak?.current_streak ?? 0)

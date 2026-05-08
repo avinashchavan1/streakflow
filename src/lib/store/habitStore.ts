@@ -70,10 +70,10 @@ export const useHabitStore = create<HabitState>((set, get) => ({
       const supabase = createClient();
       const todayStr = today();
 
+      // Fetch all habits (active + archived); callers filter at render.
       const { data: habits } = await supabase
         .from("habits")
         .select("*")
-        .eq("is_active", true)
         .order("sort_order", { ascending: true });
 
       if (!habits) {
@@ -274,7 +274,11 @@ export const useHabitStore = create<HabitState>((set, get) => ({
   deleteHabit: async (id: string) => {
     const supabase = createClient();
     await supabase.from("habits").update({ is_active: false }).eq("id", id);
-    set((state) => ({ habits: state.habits.filter((h) => h.id !== id) }));
+    set((state) => ({
+      habits: state.habits.map((h) =>
+        h.id === id ? { ...h, is_active: false } : h
+      ),
+    }));
   },
 
   reorderHabits: async (reordered: HabitWithStreak[]) => {

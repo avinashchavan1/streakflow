@@ -26,8 +26,8 @@ function progressMessage(pct: number, completed: number, total: number) {
 export function DailyProgress() {
   const { habits } = useHabitStore();
 
-  const todayHabits = habits.filter((h) =>
-    isDayScheduled(new Date(), h.frequency, h.custom_days)
+  const todayHabits = habits.filter(
+    (h) => h.is_active && isDayScheduled(new Date(), h.frequency, h.custom_days)
   );
 
   const ringData: RingDatum[] = todayHabits.map((h) => ({

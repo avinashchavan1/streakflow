@@ -17,8 +17,8 @@ export function HabitList() {
     fetchHabits();
   }, [fetchHabits]);
 
-  const todayHabits = habits.filter((h) =>
-    isDayScheduled(new Date(), h.frequency, h.custom_days)
+  const todayHabits = habits.filter(
+    (h) => h.is_active && isDayScheduled(new Date(), h.frequency, h.custom_days)
   );
 
   if (loading) {

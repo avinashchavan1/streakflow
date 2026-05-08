@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 interface SparklineProps {
   data: number[];
   color?: string;
@@ -13,6 +15,7 @@ export function Sparkline({
   width = 130,
   height = 32,
 }: SparklineProps) {
+  const reactId = useId();
   if (data.length === 0) return null;
   const max = Math.max(...data, 1);
   const min = 0;
@@ -25,7 +28,7 @@ export function Sparkline({
     })
     .join(" ");
   const area = `0,${height} ${pts} ${width},${height}`;
-  const id = `sg-${Math.random().toString(36).slice(2, 9)}`;
+  const id = `sg-${reactId.replace(/:/g, "_")}`;
   return (
     <svg
       width={width}

@@ -5,8 +5,19 @@ import { useHabitStore } from "@/lib/store/habitStore";
 import { useGamificationStore } from "@/lib/store/gamificationStore";
 import { createClient } from "@/lib/supabase/client";
 import { Heatmap } from "@/components/dashboard/Heatmap";
-import { format, subDays } from "date-fns";
+import { format, parseISO, subDays } from "date-fns";
 import type { HabitLog } from "@/types";
+
+function formatPeak(hour: number): string {
+  // hour 0..23 → "h–(h+2) AM/PM" with proper AM/PM crossover.
+  const start12 = hour % 12 === 0 ? 12 : hour % 12;
+  const end24 = (hour + 2) % 24;
+  const end12 = end24 % 12 === 0 ? 12 : end24 % 12;
+  const startMer = hour < 12 ? "AM" : "PM";
+  const endMer = end24 < 12 ? "AM" : "PM";
+  if (startMer === endMer) return `${start12}–${end12} ${startMer}`;
+  return `${start12} ${startMer} – ${end12} ${endMer}`;
+}
 
 type Range = "7d" | "30d" | "90d" | "All";
 const RANGES: Range[] = ["7d", "30d", "90d", "All"];
@@ -22,6 +33,7 @@ export default function AnalyticsPage() {
   const { profile, fetchProfile } = useGamificationStore();
   const [range, setRange] = useState<Range>("30d");
   const [logs, setLogs] = useState<HabitLog[]>([]);
+  const [prevLogs, setPrevLogs] = useState<HabitLog[]>([]);
 
   useEffect(() => {
     fetchHabits();
@@ -31,12 +43,20 @@ export default function AnalyticsPage() {
   useEffect(() => {
     async function loadLogs() {
       const supabase = createClient();
-      const since = format(subDays(new Date(), RANGE_DAYS[range]), "yyyy-MM-dd");
-      const { data } = await supabase
-        .from("habit_logs")
-        .select("*")
-        .gte("log_date", since);
+      const days = RANGE_DAYS[range];
+      const since = format(subDays(new Date(), days), "yyyy-MM-dd");
+      const prevSince = format(subDays(new Date(), days * 2), "yyyy-MM-dd");
+      const prevUntil = since;
+      const [{ data }, { data: prev }] = await Promise.all([
+        supabase.from("habit_logs").select("*").gte("log_date", since),
+        supabase
+          .from("habit_logs")
+          .select("*")
+          .gte("log_date", prevSince)
+          .lt("log_date", prevUntil),
+      ]);
       setLogs(data ?? []);
+      setPrevLogs(prev ?? []);
     }
     loadLogs();
   }, [range]);
@@ -60,8 +80,13 @@ export default function AnalyticsPage() {
       if (habits.length > 0 && set.size >= habits.length) perfectDays++;
     }
 
-    return { completionPct, perfectDays, daysSpan: days };
-  }, [logs, habits, range]);
+    const prevCompleted = prevLogs.filter((l) => l.completed).length;
+    const prevPossible = habits.length * days;
+    const prevPct =
+      prevPossible > 0 ? Math.round((prevCompleted / prevPossible) * 100) : 0;
+    const delta = completionPct - prevPct;
+    return { completionPct, perfectDays, daysSpan: days, delta };
+  }, [logs, prevLogs, habits, range]);
 
   const habitCompletion = useMemo(() => {
     const days = RANGE_DAYS[range];
@@ -110,16 +135,10 @@ export default function AnalyticsPage() {
   // By weekday
   const byWeekday = useMemo(() => {
     const totals = Array.from({ length: 7 }, () => ({ done: 0, total: 0 }));
-    const seenDates = new Map<string, number>();
-    for (const l of logs) {
-      const dow = new Date(l.log_date).getDay();
-      seenDates.set(l.log_date, dow);
-    }
-    // For each date in range, increment total per habit count
     const days = RANGE_DAYS[range];
     for (let i = 0; i < days; i++) {
       const d = format(subDays(new Date(), i), "yyyy-MM-dd");
-      const dow = new Date(d).getDay();
+      const dow = parseISO(d).getDay();
       totals[dow].total += habits.length;
       const completed = logs.filter(
         (l) => l.log_date === d && l.completed
@@ -127,7 +146,6 @@ export default function AnalyticsPage() {
       totals[dow].done += completed;
     }
     const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    // Reorder Mon..Sun
     const order = [1, 2, 3, 4, 5, 6, 0];
     return order.map((idx) => ({
       d: labels[idx],
@@ -136,10 +154,7 @@ export default function AnalyticsPage() {
   }, [logs, habits, range]);
 
   const peakHour = timeOfDay.indexOf(Math.max(...timeOfDay));
-  const peakLabel =
-    peakHour < 12
-      ? `${peakHour || 12}–${peakHour + 2 || 12} AM`
-      : `${peakHour - 12 || 12}–${peakHour - 10 || 12} PM`;
+  const peakLabel = formatPeak(peakHour);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -179,17 +194,36 @@ export default function AnalyticsPage() {
         <AnalyticsTile
           label="Completion"
           value={
-            <>
-              {stats.completionPct}
-              <span
-                className="text-lg"
-                style={{ color: "var(--sf-text-3)" }}
-              >
-                %
+            <span className="inline-flex items-baseline gap-2">
+              <span>
+                {stats.completionPct}
+                <span
+                  className="text-lg"
+                  style={{ color: "var(--sf-text-3)" }}
+                >
+                  %
+                </span>
               </span>
-            </>
+              {stats.delta !== 0 && prevLogs.length > 0 && (
+                <span
+                  className="text-xs font-semibold"
+                  style={{
+                    color:
+                      stats.delta > 0
+                        ? "var(--sf-success)"
+                        : "var(--sf-danger)",
+                  }}
+                >
+                  {stats.delta > 0 ? "↑" : "↓"} {Math.abs(stats.delta)}%
+                </span>
+              )}
+            </span>
           }
-          sub={`vs previous ${range === "All" ? "period" : range}`}
+          sub={
+            prevLogs.length > 0
+              ? `vs previous ${range === "All" ? "period" : range}`
+              : "Need more history"
+          }
         />
         <AnalyticsTile
           label="Perfect days"

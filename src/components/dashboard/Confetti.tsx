@@ -2,24 +2,37 @@
 
 import { useEffect, useState } from "react";
 
-const COLORS = ["#6C5CE7", "#00B894", "#FDCB6E", "#E17055", "#0984E3", "#D63031"];
+const COLORS = ["#ff2d55", "#ffb340", "#00d9b2", "#af52de", "#5ac8fa", "#ff5e3a"];
+
+interface Particle {
+  id: number;
+  x: number;
+  color: string;
+  delay: number;
+  size: number;
+  duration: number;
+  rounded: boolean;
+}
 
 export function Confetti() {
-  const [particles, setParticles] = useState<Array<{
-    id: number;
-    x: number;
-    color: string;
-    delay: number;
-    size: number;
-  }>>([]);
+  const [particles, setParticles] = useState<Particle[]>([]);
 
   useEffect(() => {
-    const p = Array.from({ length: 50 }, (_, i) => ({
+    // Honor reduced motion
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+    const p: Particle[] = Array.from({ length: 50 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
       delay: Math.random() * 0.5,
       size: Math.random() * 6 + 4,
+      duration: 1.5 + Math.random(),
+      rounded: Math.random() > 0.5,
     }));
     setParticles(p);
   }, []);
@@ -35,8 +48,8 @@ export function Confetti() {
             width: p.size,
             height: p.size,
             backgroundColor: p.color,
-            borderRadius: Math.random() > 0.5 ? "50%" : "2px",
-            animation: `confetti-fall ${1.5 + Math.random()}s ease-in forwards`,
+            borderRadius: p.rounded ? "50%" : "2px",
+            animation: `confetti-fall ${p.duration}s ease-in forwards`,
             animationDelay: `${p.delay}s`,
           }}
         />

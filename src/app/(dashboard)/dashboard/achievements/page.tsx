@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useGamificationStore } from "@/lib/store/gamificationStore";
 import { useHabitStore } from "@/lib/store/habitStore";
-import { format } from "date-fns";
-import type { BadgeCategory } from "@/types";
+import { createClient } from "@/lib/supabase/client";
+import { format, parseISO, subDays } from "date-fns";
+import type { BadgeCategory, HabitLog } from "@/types";
 
 const TABS: ("All" | BadgeCategory)[] = [
   "All",
@@ -21,23 +22,28 @@ const TAB_LABEL: Record<string, string> = {
   milestone: "Milestone",
 };
 
-// Approximate progress per badge based on current state
+interface ProgressState {
+  xp: number;
+  level: number;
+  topStreak: number;
+  activeHabits: number;
+  perfectStreak: number;     // consecutive perfect days
+  earlyBirdStreak: number;   // consecutive days with all-day-logs before 7am
+  hydrationStreak: number;   // current streak on a "drink water" habit
+  longestEverStreak: number; // any habit's longest_streak
+}
+
 function badgeProgress(
   id: string,
-  state: {
-    xp: number;
-    level: number;
-    topStreak: number;
-    activeHabits: number;
-  }
+  state: ProgressState
 ): { progress: number; total: number } | null {
   switch (id) {
     case "first_step":
-      return null; // boolean
+      return null;
     case "three_day":
       return { progress: Math.min(state.topStreak, 3), total: 3 };
     case "iron_week":
-      return { progress: Math.min(state.topStreak, 7), total: 7 };
+      return { progress: Math.min(state.perfectStreak, 7), total: 7 };
     case "two_week":
       return { progress: Math.min(state.topStreak, 14), total: 14 };
     case "monthly":
@@ -47,13 +53,17 @@ function badgeProgress(
     case "century":
       return { progress: Math.min(state.topStreak, 100), total: 100 };
     case "perfect_week":
-      return { progress: 0, total: 7 };
+      return { progress: Math.min(state.perfectStreak, 7), total: 7 };
     case "five_habits":
       return { progress: Math.min(state.activeHabits, 5), total: 5 };
     case "early_bird":
-      return { progress: 0, total: 7 };
+      return { progress: Math.min(state.earlyBirdStreak, 7), total: 7 };
     case "comeback":
-      return { progress: 0, total: 14 };
+      // Best proxy: any non-current streak that hit 14+
+      return {
+        progress: Math.min(state.longestEverStreak, 14),
+        total: 14,
+      };
     case "level_five":
       return { progress: Math.min(state.level, 5), total: 5 };
     case "level_ten":
@@ -61,7 +71,7 @@ function badgeProgress(
     case "thousand_xp":
       return { progress: Math.min(state.xp, 1000), total: 1000 };
     case "hydration_30":
-      return { progress: Math.min(state.topStreak, 30), total: 30 };
+      return { progress: Math.min(state.hydrationStreak, 30), total: 30 };
     default:
       return null;
   }
@@ -72,6 +82,7 @@ export default function AchievementsPage() {
     useGamificationStore();
   const { habits, fetchHabits } = useHabitStore();
   const [tab, setTab] = useState<(typeof TABS)[number]>("All");
+  const [recentLogs, setRecentLogs] = useState<HabitLog[]>([]);
 
   useEffect(() => {
     fetchProfile();
@@ -79,24 +90,88 @@ export default function AchievementsPage() {
     fetchHabits();
   }, [fetchProfile, fetchBadges, fetchHabits]);
 
+  useEffect(() => {
+    async function loadLogs() {
+      const supabase = createClient();
+      const since = format(subDays(new Date(), 90), "yyyy-MM-dd");
+      const { data } = await supabase
+        .from("habit_logs")
+        .select("*")
+        .gte("log_date", since);
+      setRecentLogs(data ?? []);
+    }
+    loadLogs();
+  }, []);
+
   const earnedById = useMemo(() => {
     const map = new Map<string, string>();
     for (const b of earnedBadges) map.set(b.badge_id, b.earned_at);
     return map;
   }, [earnedBadges]);
 
-  const state = useMemo(() => {
+  const state: ProgressState = useMemo(() => {
+    const activeHabits = habits.filter((h) => h.is_active);
     const topStreak = Math.max(
       0,
       ...habits.map((h) => h.streak?.current_streak ?? 0)
     );
+    const longestEverStreak = Math.max(
+      0,
+      ...habits.map((h) => h.streak?.longest_streak ?? 0)
+    );
+
+    // Hydration: find a habit named/iconed "water"
+    const water = habits.find(
+      (h) =>
+        h.icon.includes("💧") ||
+        /water|hydrat/i.test(h.name)
+    );
+    const hydrationStreak = water?.streak?.current_streak ?? 0;
+
+    // Perfect-day streak from recentLogs
+    const logsByDate = new Map<string, Set<string>>();
+    for (const l of recentLogs) {
+      if (!l.completed) continue;
+      if (!logsByDate.has(l.log_date)) logsByDate.set(l.log_date, new Set());
+      logsByDate.get(l.log_date)!.add(l.habit_id);
+    }
+    let perfectStreak = 0;
+    for (let i = 0; i < 90; i++) {
+      const d = format(subDays(new Date(), i), "yyyy-MM-dd");
+      const ids = logsByDate.get(d);
+      const allDone =
+        activeHabits.length > 0 &&
+        activeHabits.every((h) => ids?.has(h.id));
+      if (allDone) perfectStreak++;
+      else break;
+    }
+
+    // Early-bird streak: consecutive days where ALL completions logged before 7am local
+    let earlyBirdStreak = 0;
+    for (let i = 0; i < 90; i++) {
+      const d = format(subDays(new Date(), i), "yyyy-MM-dd");
+      const dayLogs = recentLogs.filter(
+        (l) => l.log_date === d && l.completed
+      );
+      if (dayLogs.length === 0) break;
+      const allEarly = dayLogs.every(
+        (l) => parseISO(l.logged_at).getHours() < 7
+      );
+      if (allEarly) earlyBirdStreak++;
+      else break;
+    }
+
     return {
       xp: profile?.xp ?? 0,
       level: profile?.level ?? 1,
       topStreak,
-      activeHabits: habits.filter((h) => h.is_active).length,
+      activeHabits: activeHabits.length,
+      perfectStreak,
+      earlyBirdStreak,
+      hydrationStreak,
+      longestEverStreak,
     };
-  }, [profile, habits]);
+  }, [profile, habits, recentLogs]);
 
   const filtered = badges.filter((b) =>
     tab === "All" ? true : b.category === tab

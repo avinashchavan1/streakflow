@@ -282,7 +282,7 @@ export default function LandingPage() {
         style={{ borderColor: "var(--sf-border)" }}
       >
         <div className="text-xs" style={{ color: "var(--sf-text-3)" }}>
-          © 2026 StreakFlow
+          © {new Date().getFullYear()} StreakFlow
         </div>
         <div
           className="flex gap-5 text-xs"
@@ -295,8 +295,6 @@ export default function LandingPage() {
           >
             GitHub
           </a>
-          <a href="#">Privacy</a>
-          <a href="#">Manifesto</a>
         </div>
       </footer>
     </div>

@@ -1,3 +1,4 @@
+import { format, subDays } from "date-fns";
 import type { Habit, Streak, Profile, HabitLog } from "@/types";
 
 export interface BadgeCheckContext {
@@ -60,13 +61,11 @@ function checkConsecutivePerfectDays(ctx: BadgeCheckContext, days: number): bool
     logsByDate.set(log.log_date, existing);
   }
 
-  const today = new Date();
+  const todayDate = new Date();
   let consecutivePerfect = 0;
 
   for (let i = 0; i < 90; i++) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split("T")[0];
+    const dateStr = format(subDays(todayDate, i), "yyyy-MM-dd");
     const completedIds = logsByDate.get(dateStr);
     const allDone = activeHabits.every((h) => completedIds?.has(h.id));
 

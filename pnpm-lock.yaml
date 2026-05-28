@@ -51,6 +51,9 @@ importers:
         specifier: ^5.0.13
         version: 5.0.13(@types/react@19.2.14)(immer@11.1.7)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
     devDependencies:
+      '@netlify/functions':
+        specifier: ^5.2.2
+        version: 5.2.2
       '@netlify/plugin-nextjs':
         specifier: ^5.15.10
         version: 5.15.10
@@ -446,9 +449,17 @@ packages:
   '@napi-rs/wasm-runtime@0.2.12':
     resolution: {integrity: sha512-ZVWUcfwY4E/yPitQJl481FjFo3K22D6qF0DuFH6Y/nbnE11GY5uguDxZMGXPQ8WQ0128MXQD7TnfHyK4oWoIJQ==}
 
+  '@netlify/functions@5.2.2':
+    resolution: {integrity: sha512-gnAV+Cjtr15dbEFaq3PxY7J8Gq3ui+R/iDV+mu6NIU8reeEvLerLHklFimipvGrbymNIkyrgOfniqqoFJr2+0A==}
+    engines: {node: '>=18.0.0'}
+
   '@netlify/plugin-nextjs@5.15.10':
     resolution: {integrity: sha512-Mf64nZvoDRwRCMdCjNpxCptWzpF0Vb5pcgZEoZhofI1Yi1UhnXSnxqpMHsKovl9LfCm375AjUbEgH3R3gGEBUw==}
     engines: {node: '>=18.0.0'}
+
+  '@netlify/types@2.7.0':
+    resolution: {integrity: sha512-mQeuJR1MJFnqZqJQ74B3WyP6oe2wC41VL/VAWzDj1lgdYDdlwLjFiXyHSziYH9L2cdkjGhiZ+7wdH/uUDuYryg==}
+    engines: {node: ^18.14.0 || >=20}
 
   '@next/env@16.2.5':
     resolution: {integrity: sha512-Lb9ElHD2klcyeVD25vW+siPFqz9QMzDUSgvFZNO+dZEKoMHex4viJhVuzBhrXKqb+UKnih7mVYbt50/7KLsSCA==}
@@ -2534,7 +2545,13 @@ snapshots:
       '@tybys/wasm-util': 0.10.2
     optional: true
 
+  '@netlify/functions@5.2.2':
+    dependencies:
+      '@netlify/types': 2.7.0
+
   '@netlify/plugin-nextjs@5.15.10': {}
+
+  '@netlify/types@2.7.0': {}
 
   '@next/env@16.2.5': {}
 

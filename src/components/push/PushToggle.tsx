@@ -38,10 +38,36 @@ export function PushToggle() {
   }, []);
 
   async function ensureSwRegistered() {
-    if (!("serviceWorker" in navigator)) throw new Error("Service workers not supported");
-    const existing = await navigator.serviceWorker.getRegistration("/");
-    if (existing) return existing;
-    return navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    if (!("serviceWorker" in navigator))
+      throw new Error("Service workers not supported");
+    let reg = await navigator.serviceWorker.getRegistration("/");
+    if (!reg) {
+      reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    }
+    // Wait until the SW reaches "activated" — required for pushManager.subscribe
+    if (!reg.active) {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error("Service worker activation timed out")),
+          15000
+        );
+        const sw = reg!.installing ?? reg!.waiting;
+        if (!sw) {
+          clearTimeout(timeout);
+          resolve();
+          return;
+        }
+        sw.addEventListener("statechange", () => {
+          if (sw.state === "activated") {
+            clearTimeout(timeout);
+            resolve();
+          }
+        });
+      });
+    }
+    // Belt-and-suspenders — wait for global ready promise too
+    await navigator.serviceWorker.ready;
+    return reg;
   }
 
   async function enable() {

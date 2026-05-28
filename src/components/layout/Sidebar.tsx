@@ -13,9 +13,10 @@ const NAV_ITEMS: { href: string; label: string; icon: NavIconName }[] = [
   { href: "/dashboard/analytics", label: "Analytics", icon: "chart" },
   { href: "/dashboard/achievements", label: "Achievements", icon: "trophy" },
   { href: "/dashboard/insights", label: "Insights", icon: "spark" },
+  { href: "/dashboard/settings", label: "Settings", icon: "cog" },
 ];
 
-type NavIconName = "today" | "habits" | "chart" | "trophy" | "spark";
+type NavIconName = "today" | "habits" | "chart" | "trophy" | "spark" | "cog";
 
 function NavIcon({ name, active }: { name: NavIconName; active: boolean }) {
   const stroke = active ? "var(--sf-text)" : "var(--sf-text-3)";
@@ -62,6 +63,13 @@ function NavIcon({ name, active }: { name: NavIconName; active: boolean }) {
       return (
         <svg {...props}>
           <path d="M10 3l1.6 4.4L16 9l-4.4 1.6L10 15l-1.6-4.4L4 9l4.4-1.6L10 3z" />
+        </svg>
+      );
+    case "cog":
+      return (
+        <svg {...props}>
+          <circle cx="10" cy="10" r="2.2" />
+          <path d="M16.5 10a6.5 6.5 0 00-.1-1.2l1.4-1.1-1.5-2.6-1.7.7a6.5 6.5 0 00-2.1-1.2L12 2.5h-3l-.5 2.1a6.5 6.5 0 00-2.1 1.2l-1.7-.7-1.5 2.6 1.4 1.1A6.5 6.5 0 003.5 10c0 .4 0 .8.1 1.2l-1.4 1.1 1.5 2.6 1.7-.7a6.5 6.5 0 002.1 1.2L8 17.5h3l.5-2.1a6.5 6.5 0 002.1-1.2l1.7.7 1.5-2.6-1.4-1.1c.1-.4.1-.8.1-1.2z" />
         </svg>
       );
   }

@@ -30,3 +30,17 @@ export function getServerEnv() {
     APP_URL: PUBLIC_ENV.APP_URL,
   };
 }
+
+// Cron-only — used by /api/cron/* routes. Service-role key bypasses RLS.
+// Never imported anywhere except cron routes.
+export function getCronEnv() {
+  return {
+    CRON_SECRET: required("CRON_SECRET", process.env.CRON_SECRET),
+    SUPABASE_SERVICE_ROLE_KEY: required(
+      "SUPABASE_SERVICE_ROLE_KEY",
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    ),
+    SUPABASE_URL: PUBLIC_ENV.SUPABASE_URL,
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? "",
+  };
+}

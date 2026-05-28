@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, ListTodo, BarChart3, Trophy, Sparkles } from "lucide-react";
+import { LayoutDashboard, ListTodo, BarChart3, Trophy, Sparkles, Settings } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/analytics", label: "Stats", icon: BarChart3 },
   { href: "/dashboard/achievements", label: "Badges", icon: Trophy },
   { href: "/dashboard/insights", label: "AI", icon: Sparkles },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
 export function BottomNav() {

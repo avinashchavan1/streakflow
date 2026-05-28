@@ -178,6 +178,24 @@ export function PushToggle() {
     }
   }
 
+  async function sendTest() {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/push/test", { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? "Test failed");
+      toast.success(
+        body.sent > 1
+          ? `Test sent to ${body.sent} devices.`
+          : "Test sent. Check your notifications."
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Test failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!supported) {
     return (
       <div
@@ -308,6 +326,37 @@ export function PushToggle() {
           {tz} · 24h: {hour.toString().padStart(2, "0")}:00
         </div>
       </div>
+
+      {/* Test button — only when active subscription exists */}
+      {isOn && (
+        <div
+          className="mt-4 flex items-center justify-between gap-3 border-t pt-4"
+          style={{ borderColor: "var(--sf-divider)" }}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold">Send test notification</div>
+            <div
+              className="mt-0.5 text-[11px]"
+              style={{ color: "var(--sf-text-3)" }}
+            >
+              Verify push delivery on this device.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={sendTest}
+            disabled={busy}
+            className="shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
+            style={{
+              background: "var(--sf-surface-2)",
+              borderColor: "var(--sf-border)",
+              color: "var(--sf-text)",
+            }}
+          >
+            {busy ? "…" : "Send test"}
+          </button>
+        </div>
+      )}
 
       {/* Permission denied — guidance */}
       {permission === "denied" && (

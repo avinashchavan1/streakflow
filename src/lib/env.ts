@@ -31,6 +31,20 @@ export function getServerEnv() {
   };
 }
 
+export function getVapidEnv() {
+  return {
+    VAPID_PUBLIC_KEY: required(
+      "NEXT_PUBLIC_VAPID_PUBLIC_KEY",
+      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    ),
+    VAPID_PRIVATE_KEY: required(
+      "VAPID_PRIVATE_KEY",
+      process.env.VAPID_PRIVATE_KEY
+    ),
+    VAPID_SUBJECT: required("VAPID_SUBJECT", process.env.VAPID_SUBJECT),
+  };
+}
+
 // Cron-only — used by /api/cron/* routes. Service-role key bypasses RLS.
 // Never imported anywhere except cron routes.
 export function getCronEnv() {

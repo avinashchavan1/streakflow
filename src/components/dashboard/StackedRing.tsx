@@ -29,11 +29,15 @@ export function StackedRing({
   const cy = size / 2;
   const outermost = (size - stroke) / 2;
   return (
-    <div className="relative inline-block" style={{ width: size, height: size }}>
+    <div
+      className="relative aspect-square w-full"
+      style={{ maxWidth: size }}
+    >
       <svg
-        width={size}
-        height={size}
+        width="100%"
+        height="100%"
         viewBox={`0 0 ${size} ${size}`}
+        preserveAspectRatio="xMidYMid meet"
         className="block"
       >
         {rings.map((r, i) => {

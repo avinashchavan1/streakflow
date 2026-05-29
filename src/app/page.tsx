@@ -77,7 +77,7 @@ const HERO_RINGS = [
 export default function LandingPage() {
   return (
     <div
-      className="flex min-h-screen flex-col"
+      className="flex min-h-screen flex-col overflow-x-hidden"
       style={{ background: "var(--sf-bg)", color: "var(--sf-text)" }}
     >
       <JsonLd />
@@ -234,7 +234,7 @@ export default function LandingPage() {
 
         {/* Hero rings card */}
         <div
-          className="relative flex flex-col items-center gap-6 rounded-[28px] border p-8 lg:p-10"
+          className="relative flex w-full flex-col items-center gap-6 rounded-[28px] border p-5 sm:p-8 lg:p-10"
           style={{
             background:
               "radial-gradient(ellipse at top, rgba(255,179,64,0.12), transparent 70%), var(--sf-surface)",
@@ -371,13 +371,13 @@ export default function LandingPage() {
           StreakFlow vs other habit trackers
         </h2>
         <div
-          className="overflow-hidden rounded-2xl border"
+          className="overflow-x-auto rounded-2xl border"
           style={{
             background: "var(--sf-surface)",
             borderColor: "var(--sf-border)",
           }}
         >
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--sf-border)" }}>
                 <th

@@ -6,7 +6,9 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "StreakFlow",
     description:
       "Free habit tracker with streaks, XP, badges, and AI insights. No ads, open source.",
+    id: "/",
     start_url: "/dashboard",
+    scope: "/",
     display: "standalone",
     background_color: "#100e0c",
     theme_color: "#100e0c",

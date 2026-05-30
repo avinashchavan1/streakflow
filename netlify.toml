@@ -60,3 +60,11 @@
   for = "/robots.txt"
   [headers.values]
     Cache-Control = "public, max-age=3600"
+
+# Service worker — no-cache so updates land instantly + needed scope header
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Service-Worker-Allowed = "/"
+    Content-Type = "application/javascript; charset=utf-8"
